@@ -1,0 +1,27 @@
+[
+  {
+    "question": "Which of the following is a scalar quantity?",
+    "options": ["Force", "Velocity", "Work", "Acceleration"],
+    "answer": 2
+  },
+  {
+    "question": "What is the SI unit of force?",
+    "options": ["Newton", "Watt", "Joule", "Pascal"],
+    "answer": 0
+  },
+  {
+    "question": "Which gas is most abundant in the Earth's atmosphere?",
+    "options": ["Oxygen", "Nitrogen", "Carbon dioxide", "Hydrogen"],
+    "answer": 1
+  },
+  {
+    "question": "The speed of light is approximately?",
+    "options": ["3×10^8 m/s", "3×10^6 m/s", "3×10^5 m/s", "3×10^9 m/s"],
+    "answer": 0
+  },
+  {
+    "question": "Which of the following is Newton's 3rd law?",
+    "options": ["F=ma", "For every action, there is an equal and opposite reaction", "Energy cannot be created or destroyed", "V=IR"],
+    "answer": 1
+  }
+]
