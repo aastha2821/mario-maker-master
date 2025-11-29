@@ -34,27 +34,24 @@ function QuizManager() {
   var that = this;
 
   this.init = function(callback) {
-    // Try to load questions from q.json, but use defaults if it fails
-    fetch('q.json')
-      .then(response => response.json())
-      .then(data => {
-        if (data && data.length > 0) {
-          questions = data;
-          console.log('Questions loaded from q.json:', questions.length, 'questions');
-        }
-        if (callback) callback();
-      })
-      .catch(error => {
-        console.warn('Could not load q.json, using default questions:', error);
-        // Keep using default questions loaded above
-        if (callback) callback();
-      });
+    // Questions are pre-loaded in the array above
+    console.log('[QuizManager] Questions initialized:', questions.length, 'questions available');
+    if (callback) {
+      // Call callback immediately since we're not loading from file
+      setTimeout(function() {
+        callback();
+      }, 0);
+    }
   };
 
   this.getCurrentQuestion = function() {
+    console.log('[QuizManager] getCurrentQuestion - index:', currentQuestionIndex, 'total:', questions.length);
     if (currentQuestionIndex < questions.length) {
-      return questions[currentQuestionIndex];
+      var q = questions[currentQuestionIndex];
+      console.log('[QuizManager] Returning question:', q.question);
+      return q;
     }
+    console.log('[QuizManager] No more questions - index past range');
     return null;
   };
 

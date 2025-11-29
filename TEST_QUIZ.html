@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quiz Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .test-section h3 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        .pass {
+            color: green;
+            font-weight: bold;
+        }
+        .fail {
+            color: red;
+            font-weight: bold;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        ul {
+            margin: 10px 0;
+        }
+        li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Quiz Block Test Suite</h1>
+    
+    <div class="test-section">
+        <h3>1. Quiz Manager Initialization</h3>
+        <div id="test1">Loading...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Questions Availability</h3>
+        <div id="test2">Loading...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Question Retrieval</h3>
+        <div id="test3">Loading...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. Answer Validation</h3>
+        <div id="test4">Loading...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>5. Quiz UI Initialization</h3>
+        <div id="test5">Loading...</div>
+    </div>
+
+    <script src="js/View.js"></script>
+    <script src="js/GameUI.js"></script>
+    <script src="js/mainGame/QuizManager.js"></script>
+    <script src="js/mainGame/QuizUI.js"></script>
+
+    <script>
+        // Test 1: Quiz Manager Initialization
+        try {
+            var qm = new QuizManager();
+            qm.init(function() {
+                var totalQuestions = qm.getTotalQuestions();
+                if (totalQuestions === 5) {
+                    document.getElementById('test1').innerHTML = '<span class="pass">✓ PASS</span> - QuizManager initialized with 5 questions';
+                } else {
+                    document.getElementById('test1').innerHTML = '<span class="fail">✗ FAIL</span> - Expected 5 questions, got ' + totalQuestions;
+                }
+            });
+        } catch(e) {
+            document.getElementById('test1').innerHTML = '<span class="fail">✗ ERROR</span> - ' + e.message;
+        }
+
+        // Test 2: Questions Availability
+        setTimeout(function() {
+            try {
+                var qm = new QuizManager();
+                qm.init(function() {
+                    var q1 = qm.getCurrentQuestion();
+                    if (q1 && q1.question && q1.options && q1.options.length === 4) {
+                        document.getElementById('test2').innerHTML = '<span class="pass">✓ PASS</span> - First question available: <br><strong>' + q1.question + '</strong>';
+                    } else {
+                        document.getElementById('test2').innerHTML = '<span class="fail">✗ FAIL</span> - Question format invalid';
+                    }
+                });
+            } catch(e) {
+                document.getElementById('test2').innerHTML = '<span class="fail">✗ ERROR</span> - ' + e.message;
+            }
+        }, 100);
+
+        // Test 3: Question Retrieval
+        setTimeout(function() {
+            try {
+                var qm = new QuizManager();
+                qm.init(function() {
+                    var q = qm.getCurrentQuestion();
+                    var answer1 = qm.answerQuestion(q.answer); // Correct answer
+                    var q2 = qm.getCurrentQuestion();
+                    
+                    if (answer1 && q2 && q2.question !== q.question) {
+                        document.getElementById('test3').innerHTML = '<span class="pass">✓ PASS</span> - Question iteration works<br>Moved from Q1 to Q2 after correct answer';
+                    } else {
+                        document.getElementById('test3').innerHTML = '<span class="fail">✗ FAIL</span> - Question iteration failed';
+                    }
+                });
+            } catch(e) {
+                document.getElementById('test3').innerHTML = '<span class="fail">✗ ERROR</span> - ' + e.message;
+            }
+        }, 200);
+
+        // Test 4: Answer Validation
+        setTimeout(function() {
+            try {
+                var qm = new QuizManager();
+                qm.init(function() {
+                    var q = qm.getCurrentQuestion();
+                    var correct = qm.answerQuestion(q.answer);
+                    
+                    qm.reset();
+                    var q2 = qm.getCurrentQuestion();
+                    var wrong = qm.answerQuestion((q2.answer + 1) % 4); // Wrong answer
+                    
+                    if (correct && !wrong) {
+                        document.getElementById('test4').innerHTML = '<span class="pass">✓ PASS</span> - Answer validation works<br>Correct answer: accepted | Wrong answer: rejected';
+                    } else {
+                        document.getElementById('test4').innerHTML = '<span class="fail">✗ FAIL</span> - Answer validation broken';
+                    }
+                });
+            } catch(e) {
+                document.getElementById('test4').innerHTML = '<span class="fail">✗ ERROR</span> - ' + e.message;
+            }
+        }, 300);
+
+        // Test 5: Quiz UI Initialization
+        setTimeout(function() {
+            try {
+                // Create a hidden canvas for UI
+                var canvas = document.createElement('canvas');
+                canvas.width = 1280;
+                canvas.height = 480;
+                document.body.appendChild(canvas);
+                
+                var ui = new QuizUI();
+                document.getElementById('test5').innerHTML = '<span class="pass">✓ PASS</span> - QuizUI initialized successfully<br>Ready to render quiz overlays';
+            } catch(e) {
+                document.getElementById('test5').innerHTML = '<span class="fail">✗ ERROR</span> - ' + e.message;
+            }
+        }, 400);
+    </script>
+</body>
+</html>

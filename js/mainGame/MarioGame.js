@@ -19,8 +19,14 @@ function MarioGame() {
   var element;
   var gameSound;
   var score;
-  var quizManager;
-  var quizUI;
+  var quizSystem;
+  var quizPopup;
+  var quizActive = false;
+  var marioFrozen = false;
+  var quizTimerStarted = false;
+  var quizTimerCount = 0;
+  var quizWaitingForNext = false;
+  var quizAnswerShowTime = 0;
 
   var keys = [];
   var goombas;
@@ -60,19 +66,33 @@ function MarioGame() {
     originalMaps = levelMaps;
     map = JSON.parse(levelMaps[currentLevel]);
 
-    // Initialize quiz manager and UI
-    if (!quizManager) {
-      quizManager = new QuizManager();
-      quizManager.init(function() {
-        console.log('Quiz questions loaded successfully');
+    // Initialize Quiz System
+    if (!quizSystem) {
+      quizSystem = new QuizSystem();
+      quizSystem.init(function(loaded) {
+        if (loaded) {
+          console.log('[MarioGame] Quiz system initialized with', quizSystem.getTotalQuestions(), 'questions');
+        } else {
+          console.error('[MarioGame] Failed to load quiz questions');
+        }
       });
-    } else {
-      quizManager.reset();
     }
-    
-    if (!quizUI) {
-      quizUI = new QuizUI();
+
+    // Initialize Quiz Popup
+    if (!quizPopup) {
+      quizPopup = new QuizPopup();
+      quizPopup.init();
+      quizPopup.setOnAnswerSelected(function(optionIndex) {
+        that.handleQuizAnswer(optionIndex);
+      });
     }
+
+    quizActive = false;
+    marioFrozen = false;
+    quizTimerStarted = false;
+    quizTimerCount = 0;
+    quizWaitingForNext = false;
+    quizAnswerShowTime = 0;
 
     if (!score) {
       //so that when level changes, it uses the same instance
@@ -234,6 +254,33 @@ function MarioGame() {
       instructionTick++;
     }
 
+    // Auto-trigger quiz after 5 seconds (300 frames at 60 FPS)
+    if (!quizTimerStarted && instructionTick >= 1000) {
+      quizTimerStarted = true;
+      quizTimerCount = 0;
+    }
+    
+    // First question after 5 seconds
+    if (quizTimerStarted && !quizActive && !quizWaitingForNext) {
+      quizTimerCount++;
+      if (quizTimerCount >= 300) {
+        console.log('[MarioGame] 5 seconds elapsed - showing first quiz question!');
+        that.startQuizBlock();
+        quizTimerCount = 0;
+      }
+    }
+    
+    // Show next question after 5 seconds (if waiting)
+    if (quizWaitingForNext && !quizActive) {
+      quizAnswerShowTime++;
+      if (quizAnswerShowTime >= 300) {
+        console.log('[MarioGame] 5 seconds elapsed - showing next quiz question!');
+        that.startQuizBlock();
+        quizAnswerShowTime = 0;
+        quizWaitingForNext = false;
+      }
+    }
+
     that.renderMap();
 
     for (var i = 0; i < powerUps.length; i++) {
@@ -272,19 +319,18 @@ function MarioGame() {
 
     // Draw quiz overlay if active
     if (showQuizOverlay && !quizAnswerInProgress) {
+      console.log('[MarioGame] Rendering quiz overlay...');
       if (quizManager) {
         var currentQuestion = quizManager.getCurrentQuestion();
         if (currentQuestion) {
+          console.log('[MarioGame] Drawing question:', currentQuestion.question);
           quizUI.drawQuizOverlay(currentQuestion);
         } else {
           console.warn('No current question available. Questions loaded:', quizManager.getTotalQuestions());
         }
+      } else {
+        console.error('[MarioGame] quizManager is null!');
       }
-    }
-
-    // Draw congratulations overlay if quiz is complete
-    if (quizManager && quizManager.isQuizComplete() && showQuizOverlay === false && quizManager.getQuizActive()) {
-      quizUI.drawCongratulations();
     }
   };
 
@@ -543,14 +589,26 @@ function MarioGame() {
       }
 
       if (element.type == 11) {
-        //Quiz Box
-        if (quizManager.addQuizBlockTriggered(row, column)) {
-          // This is a new quiz block, show the quiz
-          quizManager.setQuizActive(true);
-          showQuizOverlay = true;
-          console.log('Quiz triggered! Current question:', quizManager.getCurrentQuestionIndex());
-          // Don't pause immediately - let the rendering happen first
-          // that.pauseGame();
+        //Quiz Block (Type 11)
+        if (!quizActive && quizPopup && quizSystem) {
+          console.log('[MarioGame] Hit quiz block! Checking if questions loaded...');
+          console.log('[MarioGame] Total questions available:', quizSystem.getTotalQuestions());
+          
+          // Check if we have questions loaded
+          if (quizSystem.getTotalQuestions() === 0) {
+            console.warn('[MarioGame] Questions not loaded yet, waiting...');
+            // Wait a bit for questions to load
+            setTimeout(function() {
+              if (quizSystem.getTotalQuestions() > 0) {
+                console.log('[MarioGame] Questions loaded, starting quiz now');
+                that.startQuizBlock();
+              } else {
+                console.error('[MarioGame] Questions still not loaded');
+              }
+            }, 500);
+          } else {
+            that.startQuizBlock();
+          }
         }
         
         map[row][column] = 4; //sets to useless box after quiz block appears
@@ -747,8 +805,9 @@ function MarioGame() {
     var friction = 0.9;
     var gravity = 0.2;
 
-    // Don't update Mario during quiz
-    if (showQuizOverlay) {
+    // Freeze Mario during quiz
+    if (marioFrozen || quizActive) {
+      mario.velX = 0;
       return;
     }
 
@@ -884,52 +943,6 @@ function MarioGame() {
     }
   };
 
-  this.handleQuizAnswer = function(selectedOptionIndex) {
-    quizAnswerInProgress = true;
-    var isCorrect = quizManager.answerQuestion(selectedOptionIndex);
-
-    if (isCorrect) {
-      // Correct answer - check if quiz is complete
-      if (quizManager.isQuizComplete()) {
-        // All questions answered - show congratulations and end game
-        showQuizOverlay = false;
-        timeOutId = setTimeout(function() {
-          that.gameOver();
-          that.showCongratulatios();
-        }, 500);
-      } else {
-        // Move to next question
-        quizAnswerInProgress = false;
-        showQuizOverlay = false;
-        that.startGame(); // Resume game
-      }
-    } else {
-      // Wrong answer - Mario dies
-      that.pauseGame();
-
-      mario.frame = 13;
-      score.lifeCount--;
-      score.updateLifeCount();
-
-      //sound when mario dies
-      gameSound.play('marioDie');
-
-      timeOutId = setTimeout(function() {
-        showQuizOverlay = false;
-        quizAnswerInProgress = false;
-        if (score.lifeCount == 0) {
-          that.gameOver();
-        } else {
-          that.resetGame();
-        }
-      }, 3000);
-    }
-  };
-
-  this.showCongratulatios = function() {
-    quizUI.drawCongratulations();
-  };
-
   this.levelFinish = function(collisionDirection) {
     //game finishes when mario slides the flagPole and collides with the ground
     if (collisionDirection == 'r') {
@@ -969,8 +982,89 @@ function MarioGame() {
     }
   };
 
+  this.startQuizBlock = function() {
+    console.log('[MarioGame] Starting quiz block interaction...');
+    
+    // Make sure questions are available
+    if (quizSystem.getTotalQuestions() === 0) {
+      console.error('[MarioGame] No questions available!');
+      return;
+    }
+
+    quizActive = true;
+    marioFrozen = true;
+    
+    // Get current question
+    var question = quizSystem.getCurrentQuestion();
+    var currentIdx = quizSystem.getCurrentQuestionIndex();
+    var totalQuestions = quizSystem.getTotalQuestions();
+    
+    console.log('[MarioGame] Displaying question:', currentIdx + 1, 'of', totalQuestions);
+    quizPopup.displayQuestion(question, currentIdx, totalQuestions);
+  };
+
   this.pauseGame = function() {
     window.cancelAnimationFrame(animationID);
+  };
+
+  this.handleQuizAnswer = function(optionIndex) {
+    console.log('[MarioGame] Quiz answer submitted:', optionIndex);
+    
+    if (!quizSystem || !quizPopup) {
+      console.error('[MarioGame] Quiz system not initialized');
+      return;
+    }
+
+    var result = quizSystem.answerQuestion(optionIndex);
+
+    if (result.correct) {
+      console.log('[MarioGame] ✓ CORRECT!');
+      // Show simple "right" message
+      quizPopup.showResult(true, '✓ Right!');
+
+      // Kill nearest enemy
+      if (goombas.length > 0) {
+        goombas[0].state = 'dead';
+        console.log('[MarioGame] Enemy defeated!');
+      }
+
+      // Wait 5 seconds then show next question or finish
+      setTimeout(function() {
+        if (result.quizComplete) {
+          console.log('[MarioGame] All questions completed!');
+          quizPopup.showCongratulatios();
+          
+          setTimeout(function() {
+            quizActive = false;
+            marioFrozen = false;
+            quizPopup.hide();
+            that.resetGame();
+          }, 3000);
+        } else {
+          // Set flag to show NEXT question after 5 more seconds
+          quizActive = false;
+          marioFrozen = false;
+          quizPopup.hide();
+          quizWaitingForNext = true;
+          quizAnswerShowTime = 0;
+        }
+      }, 5000);
+    } else {
+      console.log('[MarioGame] ❌ WRONG! Restarting game...');
+      // Show simple "wrong" message with "better luck next time"
+      quizPopup.showResult(false, '❌ Wrong! Better luck next time!');
+      
+      // Wait 5 seconds then RESTART the game from the beginning
+      // BUT keep the question index so the same question appears again
+      setTimeout(function() {
+        quizActive = false;
+        marioFrozen = false;
+        quizPopup.hide();
+        // DO NOT reset quiz system - keep question index
+        // This way the same question will be asked again
+        that.resetGame();
+      }, 5000);
+    }
   };
 
   this.gameOver = function() {
@@ -981,6 +1075,11 @@ function MarioGame() {
   };
 
   this.resetGame = function() {
+    // IMPORTANT: Cancel the old animation loop before restarting
+    if (animationID) {
+      window.cancelAnimationFrame(animationID);
+      animationID = null;
+    }
     that.clearInstances();
     that.init(originalMaps, currentLevel);
   };
